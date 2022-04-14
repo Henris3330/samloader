@@ -2,7 +2,7 @@
 Download firmware for Samsung devices (without any extra Windows drivers).
 ## Installation
 ```
-pip3 install git+https://github.com/nlscc/samloader.git
+pip3 install git+https://github.com/yespap/samloader.git
 ```
 ## Usage
 Run with `samloader` or `python3 -m samloader`. See `samloader --help` and `samloader (command) --help` for help.

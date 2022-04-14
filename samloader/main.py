@@ -13,69 +13,54 @@ from . import fusclient
 from . import versionfetch
 
 def main():
-    parser = argparse.ArgumentParser(description="Download and query firmware for Samsung devices.")
-    parser.add_argument("-m", "--dev-model", help="device model", required=True)
-    parser.add_argument("-r", "--dev-region", help="device region code", required=True)
-    subparsers = parser.add_subparsers(dest="command")
-    dload = subparsers.add_parser("download", help="download a firmware")
-    dload.add_argument("-v", "--fw-ver", help="firmware version to download", required=True)
-    dload.add_argument("-R", "--resume", help="resume an unfinished download", action="store_true")
-    dload.add_argument("-M", "--show-md5", help="print the expected MD5 hash of the downloaded file", action="store_true")
-    dload.add_argument("-D", "--do-decrypt", help="auto-decrypt the downloaded file after downloading", action="store_true")
-    dload_out = dload.add_mutually_exclusive_group(required=True)
-    dload_out.add_argument("-O", "--out-dir", help="output the server filename to the specified directory")
-    dload_out.add_argument("-o", "--out-file", help="output to the specified file")
-    chkupd = subparsers.add_parser("checkupdate", help="check for the latest available firmware version")
-    decrypt = subparsers.add_parser("decrypt", help="decrypt an encrypted firmware")
-    decrypt.add_argument("-v", "--fw-ver", help="encrypted firmware version", required=True)
-    decrypt.add_argument("-V", "--enc-ver", type=int, choices=[2, 4], default=4, help="encryption version (default 4)")
-    decrypt.add_argument("-i", "--in-file", help="encrypted firmware file input", required=True)
-    decrypt.add_argument("-o", "--out-file", help="decrypted firmware file output", required=True)
-    args = parser.parse_args()
-    if args.command == "download":
-        client = fusclient.FUSClient()
-        path, filename, size = getbinaryfile(client, args.fw_ver, args.dev_model, args.dev_region)
-        print("resuming" if args.resume else "downloading", filename)
-        out = args.out_file if args.out_file else os.path.join(args.out_dir, filename)
-        dloffset = os.stat(out).st_size if args.resume else 0
-        if dloffset == size:
-            print("already downloaded!")
-            return
-        fd = open(out, "ab" if args.resume else "wb")
-        initdownload(client, filename)
-        r = client.downloadfile(path+filename, dloffset)
-        if args.show_md5 and "Content-MD5" in r.headers:
-            print("MD5:", base64.b64decode(r.headers["Content-MD5"]).hex())
-        pbar = tqdm(total=size, initial=dloffset, unit="B", unit_scale=True)
-        for chunk in r.iter_content(chunk_size=0x10000):
-            if chunk:
-                fd.write(chunk)
-                fd.flush()
-                pbar.update(0x10000)
-        fd.close()
-        if args.do_decrypt: # decrypt the file if needed
-            dec = out.replace(".enc4", "").replace(".enc2", "") # TODO: use a better way of doing this
-            if os.path.isfile(dec):
-                print("file {} already exists, refusing to auto-decrypt!")
-                return
-            print("decyrpting", out)
-            # TODO: remove code duplication with decrypt command
-            getkey = crypt.getv2key if filename.endswith(".enc2") else crypt.getv4key
-            key = getkey(args.fw_ver, args.dev_model, args.dev_region)
-            length = os.stat(out).st_size
-            with open(out, "rb") as inf:
-                with open(dec, "wb") as outf:
-                    crypt.decrypt_progress(inf, outf, key, length)
-            os.remove(out)
-    elif args.command == "checkupdate":
-        print(versionfetch.getlatestver(args.dev_model, args.dev_region))
-    elif args.command == "decrypt":
-        getkey = crypt.getv4key if args.enc_ver == 4 else crypt.getv2key
-        key = getkey(args.fw_ver, args.dev_model, args.dev_region)
-        length = os.stat(args.in_file).st_size
-        with open(args.in_file, "rb") as inf:
-            with open(args.out_file, "wb") as outf:
-                crypt.decrypt_progress(inf, outf, key, length)
+    client = fusclient.FUSClient()
+    subfolders = [ f.path for f in os.scandir(".") if f.is_dir() and "-" in f.name ]
+    latest = ""
+    latest_csc = ""
+    latest_date = "0"
+    for subfolder in subfolders:
+        fw_list = []
+        fw_list_mm = []
+        fw_list_nn = []
+        info = open(subfolder + "/csc.txt", "r+")
+        for line in info.read().splitlines():
+            csc = line.split("csc: ")[1].split(" fw_version:")[0]
+            old_fw_version = line.split("fw_version: ")[1].split(" os_version:")[0]
+            path, filename, size, fw_version, os_version = getbinaryfile(client, old_fw_version, subfolder[2:], csc)
+            for str in filename.split("_"):
+                if len(str) == 14:
+                    build_date = str
+                    break
+            if int(build_date) > int(latest_date):
+                latest = fw_version
+                latest_csc = csc
+                latest_date = build_date
+            fw_list.append("csc: " + csc + " fw_version: " + fw_version + " os_version: " + os_version + " build_date: " + build_date)
+            if "6." in os_version:
+                fw_list_mm.append("csc: " + csc + " fw_version: " + fw_version + " os_version: " + os_version + " build_date: " + build_date)
+            if "7." in os_version:
+                fw_list_nn.append("csc: " + csc + " fw_version: " + fw_version + " os_version: " + os_version + " build_date: " + build_date)
+        info.seek(0)
+        info.truncate()
+        info.write("\n".join(fw_list))
+        info.close()
+        latest_fw = sorted(fw_list, key=lambda x:x[-14:None])[-1]
+        f = open(subfolder + "/available", "w")
+        f.write(latest_fw.split("fw_version: ")[1].split(" os_version:")[0] + "\n" + latest_fw.split("csc: ")[1].split(" fw_version:")[0] + "\n" + latest_fw.split("build_date: ")[1])
+        f.close()
+        if fw_list_mm:
+            latest_fw_mm = sorted(fw_list_mm, key=lambda x:x[-14:None])[-1]
+            f = open(subfolder + "/available_mm", "w")
+            f.write(latest_fw_mm.split("fw_version: ")[1].split(" os_version:")[0] + "\n" + latest_fw_mm.split("csc: ")[1].split(" fw_version:")[0] + "\n" + latest_fw_mm.split("build_date: ")[1])
+            f.close()
+        if fw_list_nn:
+            latest_fw_nn = sorted(fw_list_nn, key=lambda x:x[-14:None])[-1]
+            f = open(subfolder + "/available_nn", "w")
+            f.write(latest_fw_nn.split("fw_version: ")[1].split(" os_version:")[0] + "\n" + latest_fw_nn.split("csc: ")[1].split(" fw_version:")[0] + "\n" + latest_fw_nn.split("build_date: ")[1])
+            f.close()
+    f = open("latest", "w")
+    f.write(latest + "\n" + latest_csc + "\n" + latest_date)
+    f.close()
 
 def initdownload(client, filename):
     req = request.binaryinit(filename, client.nonce)
@@ -93,4 +78,9 @@ def getbinaryfile(client, fw, model, region):
         raise Exception("DownloadBinaryInform failed to find a firmware bundle")
     size = int(root.find("./FUSBody/Put/BINARY_BYTE_SIZE/Data").text)
     path = root.find("./FUSBody/Put/MODEL_PATH/Data").text
-    return path, filename, size
+    # ADD_LATEST_FW_VERSION, ADD_LATEST_DISPLAY_VERSION -> latest u can get by clicking update in phone while having "old_vc"
+    # CURRENT_DISPLAY_VERSION -> fw we pinged with
+    # LATEST_DISPLAY_VERSION -> newest firmware, same as LATEST_FW_VERSION ???
+    fw_version = root.find("./FUSBody/Results/LATEST_FW_VERSION/Data").text
+    os_version = root.find("./FUSBody/Put/LATEST_OS_VERSION/Data").text
+    return path, filename, size, fw_version, os_version
