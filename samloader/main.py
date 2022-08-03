@@ -22,10 +22,12 @@ def main():
         fw_list = []
         fw_list_mm = []
         fw_list_nn = []
+        cache_fw = "sadfasd"
         info = open(subfolder + "/csc.txt", "r+")
         for line in info.read().splitlines():
             csc = line.split("csc: ")[1].split(" fw_version:")[0]
             old_fw_version = line.split("fw_version: ")[1].split(" os_version:")[0]
+            cache_fw = old_fw_version
             path, filename, size, fw_version, os_version = getbinaryfile(client, old_fw_version, subfolder[2:], csc)
             # garbage error handle
             if old_fw_version != fw_version:
@@ -46,7 +48,10 @@ def main():
         info.truncate()
         info.write("\n".join(fw_list))
         info.close()
-        latest_fw = sorted(fw_list, key=lambda x:x[-14:None])[-1]
+        if fw_list:
+            latest_fw = sorted(fw_list, key=lambda x:x[-14:None])[-1]
+        else:
+            latest_fw = cache_fw
         f = open(subfolder + "/available", "w")
         f.write(latest_fw.split("fw_version: ")[1].split(" os_version:")[0] + "\n" + latest_fw.split("csc: ")[1].split(" fw_version:")[0] + "\n" + latest_fw.split("build_date: ")[1])
         f.close()
