@@ -25,8 +25,12 @@ def main():
         cache_fw = "sadfasd"
         info = open(subfolder + "/csc.txt", "r+")
         for line in info.read().splitlines():
-            csc = line.split("csc: ")[1].split(" fw_version:")[0]
-            old_fw_version = line.split("fw_version: ")[1].split(" os_version:")[0]
+            try:
+                csc = line.split("csc: ")[1].split(" fw_version:")[0]
+                old_fw_version = line.split("fw_version: ")[1].split(" os_version:")[0]
+            except:
+                csc = line
+                old_fw_version = "A"
             cache_fw = old_fw_version
             path, filename, size, fw_version, os_version = getbinaryfile(client, old_fw_version, subfolder[2:], csc)
             # garbage error handle
