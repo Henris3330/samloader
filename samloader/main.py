@@ -57,11 +57,15 @@ def main():
         else:
             latest_fw = cache_fw
         f = open(subfolder + "/available", "w")
+        print(latest_fw.split("fw_version: ")[1].split(" os_version:")[0])
+        print(latest_fw.split("csc: ")[1].split(" fw_version:")[0])
+        print(latest_fw.split("build_date: ")[1])
         f.write(latest_fw.split("fw_version: ")[1].split(" os_version:")[0] + "\n" + latest_fw.split("csc: ")[1].split(" fw_version:")[0] + "\n" + latest_fw.split("build_date: ")[1])
         f.close()
         if fw_list_mm:
             latest_fw_mm = sorted(fw_list_mm, key=lambda x:x[-14:None])[-1]
             f = open(subfolder + "/available_mm", "w")
+            
             f.write(latest_fw_mm.split("fw_version: ")[1].split(" os_version:")[0] + "\n" + latest_fw_mm.split("csc: ")[1].split(" fw_version:")[0] + "\n" + latest_fw_mm.split("build_date: ")[1])
             f.close()
         if fw_list_nn:
