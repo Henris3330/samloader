@@ -57,7 +57,7 @@ def main():
         else:
             latest_fw = cache_fw
         f = open(subfolder + "/available", "w")
-        print(latest_fw.split("fw_version: ")[1].split(" os_version:")[0])
+        print(latest_fw)
         print(latest_fw.split("csc: ")[1].split(" fw_version:")[0])
         print(latest_fw.split("build_date: ")[1])
         f.write(latest_fw.split("fw_version: ")[1].split(" os_version:")[0] + "\n" + latest_fw.split("csc: ")[1].split(" fw_version:")[0] + "\n" + latest_fw.split("build_date: ")[1])
