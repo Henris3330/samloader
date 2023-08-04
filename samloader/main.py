@@ -54,9 +54,9 @@ def main():
         info.close()
         if fw_list:
             latest_fw = sorted(fw_list, key=lambda x:x[-14:None])[-1]
-        f = open(subfolder + "/available", "w")
-        f.write(latest_fw.split("fw_version: ")[1].split(" os_version:")[0] + "\n" + latest_fw.split("csc: ")[1].split(" fw_version:")[0] + "\n" + latest_fw.split("build_date: ")[1])
-        f.close()
+            f = open(subfolder + "/available", "w")
+            f.write(latest_fw.split("fw_version: ")[1].split(" os_version:")[0] + "\n" + latest_fw.split("csc: ")[1].split(" fw_version:")[0] + "\n" + latest_fw.split("build_date: ")[1])
+            f.close()
         if fw_list_mm:
             latest_fw_mm = sorted(fw_list_mm, key=lambda x:x[-14:None])[-1]
             f = open(subfolder + "/available_mm", "w")
